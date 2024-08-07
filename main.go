@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	// создание бота, подключение
+	// create bot and conenct
 	bot, err := tgbotapi.NewBotAPI("6798282567:AAEC8jxADvq9CTSaHBtmxYkflbP7pj72gvU")
 	if err != nil {
 		log.Fatal()
@@ -52,14 +52,14 @@ func AsyncProcess(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 			// Получаем информацию о файле
 			file_name := fmt.Sprintf("%s.jpg", fileID)
 			file_path := filepath.Join("picture/", file_name)
-			go InstallPhoto(fileID, bot)
+			InstallPhoto(fileID, bot)
 			api_token, err := random_token()
 			if err != nil {
 				log.Println(err)
 			}
 			image_url := Post(file_path, api_token)
-			go Remove_Image(file_path)
-			go Install_picture(image_url, file_path)
+			Remove_Image(file_path)
+			Install_picture(image_url, file_path)
 			send_photo := tgbotapi.NewPhotoUpload(update.Message.Chat.ID, file_path)
 			send_photoDocument := tgbotapi.NewDocumentUpload(update.Message.Chat.ID, file_path)
 			send_photoDocument.Caption = "Фото обработано, наслаждайтесь работой!!!!"
@@ -71,7 +71,7 @@ func AsyncProcess(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 			if err != nil {
 				log.Println("Ошибка при отправке Документа")
 			}
-			go Remove_Image(file_path)
+			Remove_Image(file_path)
 		}
 	}
 }
