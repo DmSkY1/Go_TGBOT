@@ -144,7 +144,7 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 		}()
 		err = os.Remove(filepath[:strings.Index(filepath, ".")+1] + "jpeg")
 		if err != nil {
-			fmt.Println("Error deleting file: 92!!", err)
+			fmt.Println("Error deleting file: 92!", err)
 		}
 		mu.Lock()
 		(*user_state)[chatID] = IdleState
