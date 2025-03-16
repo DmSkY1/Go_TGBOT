@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	tgbotapi "github.com/Syfaro/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	installPhoto "main.go/INSTALL_PICTURE"
 	post_file "main.go/POST"
 	rand_key "main.go/RandomKey"
@@ -23,19 +23,14 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 	messageID := update.Message.MessageID
 
 	if update.Message.Photo != nil {
-		photo := *update.Message.Photo
+		photo := update.Message.Photo
 		fileID := photo[len(photo)-1].FileID
 		file, err := bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
 		if err != nil {
 			log.Println(err)
 		}
 
-		photoMsg := tgbotapi.NewAnimationShare(chatID, "https://i.gifer.com/origin/38/3823ad20629c89b3dd4821b80eee79eb_w200.gif")
-		photoMsg.ReplyToMessageID = messageID
-		photoMsg.Caption = fmt.Sprintf("📸 Ваше фото в обработке! 🚀\n" +
-			"Я занимаюсь улучшением и увеличением вашего изображения. Это займет примерно 10 секунд. ⏳✨\n\n" +
-			"Пожалуйста, подождите немного, и ваше фото будет готово к просмотру. Спасибо за терпение! 😊")
-		bot.Send(photoMsg)
+		infoMessage(bot, chatID, messageID)
 
 		// Получаем прямую ссылку на файл фотографии
 		fileURL := file.Link(bot.Token)
@@ -61,7 +56,7 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 			log.Println("Ошибка при загрузке файла:", err)
 			return
 		}
-		document := tgbotapi.NewDocumentUpload(chatID, res)
+		document := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(res))
 		document.Caption = fmt.Sprintf("🎯 *Готово!* 🎯\n\n" +
 			"🎉 Ваше изображение теперь выглядит лучше! 📸🌈\n\n" +
 			"🔍 _Посмотрите внимательно и наслаждайтесь результатом!_ 😊")
@@ -72,7 +67,7 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 
 		go func() {
 			deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
-			if _, err := bot.DeleteMessage(deleteMsg); err != nil {
+			if _, err := bot.Request(deleteMsg); err != nil {
 				log.Println("Ошибка при удалении сообщения:", err)
 			}
 		}()
@@ -85,12 +80,8 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 		mu.Unlock()
 
 	} else if update.Message.Document != nil && isImageFile(update.Message.Document) {
-		photoMsg := tgbotapi.NewAnimationShare(chatID, "https://i.gifer.com/origin/38/3823ad20629c89b3dd4821b80eee79eb_w200.gif")
-		photoMsg.ReplyToMessageID = messageID
-		photoMsg.Caption = fmt.Sprintf("📸 Ваше фото в обработке! 🚀\n" +
-			"Я занимаюсь улучшением и увеличением вашего изображения. Это займет примерно 10 секунд. ⏳✨\n\n" +
-			"Пожалуйста, подождите немного, и ваше фото будет готово к просмотру. Спасибо за терпение! 😊")
-		bot.Send(photoMsg)
+
+		infoMessage(bot, chatID, messageID)
 
 		fileID := update.Message.Document.FileID
 		file, err := bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
@@ -128,7 +119,7 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 		if err != nil {
 			log.Println("Ошибка при загрузке файла:", err)
 		}
-		document := tgbotapi.NewDocumentUpload(chatID, res)
+		document := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(res))
 		document.Caption = fmt.Sprintf("🎯 *Готово!* 🎯\n\n" +
 			"🎉 Ваше изображение теперь выглядит лучше! 📸🌈\n\n" +
 			"🔍 _Посмотрите внимательно и наслаждайтесь результатом!_ 😊")
@@ -138,7 +129,8 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 		}
 		go func() {
 			deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
-			if _, err := bot.DeleteMessage(deleteMsg); err != nil {
+			_, err := bot.Request(deleteMsg)
+			if err != nil {
 				log.Println("Ошибка при удалении сообщения:", err)
 			}
 		}()
@@ -158,7 +150,7 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 			bot.Send(msg)
 			return
 		} else {
-			errorMessage_url := tgbotapi.NewAnimationShare(chatID, "https://gifs.obs.ru-moscow-1.hc.sbercloud.ru/1d06b49de1ac9de5cbc468d1d449d74658d39b7471c689cf5ec7570106908a9e.gif")
+			errorMessage_url := tgbotapi.NewAnimation(chatID, tgbotapi.FileURL("https://gifs.obs.ru-moscow-1.hc.sbercloud.ru/1d06b49de1ac9de5cbc468d1d449d74658d39b7471c689cf5ec7570106908a9e.gif"))
 			errorMessage_url.Caption = fmt.Sprintf("🚫 <i><strong>Ошибка! Неверный формат запроса.</strong></i> Пожалуйста, отправьте фотографию URL-адрес на нее. 🌐\n\n"+
 				"Чтобы продолжить, повторите команду /%s с <strong>корректным URL.</strong>⚠️", (*user_active_command)[chatID])
 			errorMessage_url.ParseMode = "HTML"
@@ -174,4 +166,13 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 		}
 
 	}
+}
+
+func infoMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int) {
+	photoMsg := tgbotapi.NewAnimation(chatID, tgbotapi.FileURL("https://i.gifer.com/origin/38/3823ad20629c89b3dd4821b80eee79eb_w200.gif"))
+	photoMsg.ReplyToMessageID = messageID
+	photoMsg.Caption = fmt.Sprintf("📸 Ваше фото в обработке! 🚀\n" +
+		"Я занимаюсь улучшением и увеличением вашего изображения. Это займет примерно 10 секунд. ⏳✨\n\n" +
+		"Пожалуйста, подождите немного, и ваше фото будет готово к просмотру. Спасибо за терпение! 😊")
+	bot.Send(photoMsg)
 }

@@ -3,7 +3,6 @@ package RandomKey
 import (
 	"bufio"
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -39,7 +38,7 @@ func GetRandomAPIKey(filename string) (string, error) {
 		return "", err
 	}
 	// read json file
-	data, err := ioutil.ReadFile("../using_API_keys.json")
+	data, err := os.ReadFile("C:/Users/DmSkY/Desktop/Go_Bot/using_API_keys.json")
 	if err != nil {
 		return "", err
 	}
@@ -52,25 +51,29 @@ func GetRandomAPIKey(filename string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	Key := api_keys.Keys[keys[Random_index(filename, keys)]]
+
+	keyName := keys[Random_index(filename, keys)]
+	Key := api_keys.Keys[keyName]
 
 	if Key.Using < 25 {
 		Key.Using++
 		Key.LeftToUse--
+
+		api_keys.Keys[keyName] = Key
+
+		updateData, err := json.MarshalIndent(api_keys, "", " ")
+		if err != nil {
+			log.Println("[-] Error marshaling json")
+			return "", err
+		}
+		err = os.WriteFile("C:/Users/DmSkY/Desktop/Go_Bot/using_API_keys.json", updateData, 0644)
+		if err != nil {
+			log.Println("[-] Error writing json:", err)
+			return "", err
+		}
+
 		log.Println("[+] Successful key verification")
-		go func() {
-			updateData, err := json.MarshalIndent(api_keys, "", " ")
-			if err != nil {
-				log.Println("[-] Error marshaling json")
-				return
-			}
-			err = ioutil.WriteFile("../using_API_keys.json", updateData, 0644)
-			if err != nil {
-				log.Println("[-] Error writing json:", err)
-				return
-			}
-		}()
-		return keys[Random_index(filename, keys)], nil
+		return keyName, nil
 	} else if Key.Using >= 25 {
 		return "", nil
 	} else {

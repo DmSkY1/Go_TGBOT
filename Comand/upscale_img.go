@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	tgbotapi "github.com/Syfaro/telegram-bot-api"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	installPhoto "main.go/INSTALL_PICTURE"
 	post_file "main.go/POST"
 	rand_key "main.go/RandomKey"
@@ -37,32 +37,16 @@ func Upscale_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, us_state *map[i
 
 	// Проверка, является ли сообщение сжатой фотографией
 	if update.Message.Photo != nil {
-		error_photo := tgbotapi.NewAnimationShare(chatID, "https://gifs.obs.ru-moscow-1.hc.sbercloud.ru/6e330e6add14701f3a495e17e01e17cccb377fba621adb0f6aeec8430cfc5153.gif")
-		error_photo.Caption = fmt.Sprintf("🚫 <i><strong>Неверный формат запроса!</strong></i> Вы отправили неправильный тип данных. Пожалуйста, загрузите фотографию как файл (например, JPEG или PNG), а не сжатое изображение. 📁\n\n"+
-			"Чтобы продолжить, повторите команду /%s и отправьте фотографию в виде файла. ⚠️", (*us_active_commang)[chatID])
-		error_photo.ParseMode = "HTML"
-		error_photo.ReplyToMessageID = messageID // Указываем ID сообщения для ответа
-		_, err := bot.Send(error_photo)
-		if err != nil {
-			log.Println("Ошибка отправки GIF:", err)
-		}
-		mu.Lock()
-		(*us_state)[chatID] = IdleState
-		mu.Unlock()
+		invalidFormatMessage(bot, chatID, messageID, us_active_commang)
+		setUserState(chatID, us_state)
 		return
 
 	} else if update.Message.Document != nil && isImageFile(update.Message.Document) { // Провверка, является ли сообщение документом
 		mu.Lock()
 		userStates[chatID] = WaitingForImageState
 		mu.Unlock()
+		informationMessage(bot, chatID, messageID)
 
-		// Формируем сообщение для отправки
-		photoMsg := tgbotapi.NewAnimationShare(chatID, "https://i.gifer.com/origin/38/3823ad20629c89b3dd4821b80eee79eb_w200.gif")
-		photoMsg.ReplyToMessageID = messageID
-		photoMsg.Caption = fmt.Sprintf("📸 Ваше фото в обработке! 🚀\n" +
-			"Я занимаюсь улучшением и увеличением вашего изображения. Это займет примерно 10 секунд. ⏳✨\n\n" +
-			"Пожалуйста, подождите немного, и ваше фото будет готово к просмотру. Спасибо за терпение! 😊")
-		bot.Send(photoMsg)
 		// Получаем API-ключ из файла
 		api_key, err := rand_key.GetRandomAPIKey("NewApiKey.txt")
 		if err != nil {
@@ -81,53 +65,71 @@ func Upscale_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, us_state *map[i
 		// Установка и отправка на обработку сообщения
 		downloadURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", bot.Token, file.FilePath)
 		filepath := fmt.Sprintf("picture/%s_%s", fileID, update.Message.Document.FileName)
-		FileName := update.Message.Document.FileName
+		//FileName := update.Message.Document.FileName
+
+		// Скачиваем файл из Telegram API
 		err = installPhoto.InstallPhoto(filepath, downloadURL)
 		if err != nil {
 			log.Println("Ошибка при скачивании файла:", err)
 		} else {
 			log.Printf("Файл успешно скачан с именем: %s", filepath)
 		}
+
+		// Получение занчения по улучшению качества
 		upscale_factor := (*us_active_commang)[chatID][len((*us_active_commang)[chatID])-2:]
-		log.Println(upscale_factor)
+		// log.Println(upscale_factor)
+
 		go func() {
+
+			// Отправка на обработку фотографии
 			result, err := post_file.PostImage(api_key, filepath, upscale_factor)
 			if err != nil {
-				log.Println("Ошибка при отправке пост Запроса 1")
+				setUserState(chatID, us_state)
+
+				//Удаление последнего сообщения
+				go func() {
+					deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
+					if _, err := bot.Request(deleteMsg); err != nil {
+						log.Println("Ошибка при удалении сообщения:", err)
+					}
+					// https://s7.gifyu.com/images/SGWok.gif митсури
+					// 2. Отправляем новое сообщение с гифом и обновленной подписью
+					photoMsg := tgbotapi.NewAnimation(chatID, tgbotapi.FileURL("https://media1.tenor.com/m/SkLMJf60EyQAAAAd/%D0%B0%D0%BD%D0%B8%D0%BC%D0%B5.gif"))
+					photoMsg.ReplyToMessageID = update.Message.MessageID
+					photoMsg.Caption = "🚫 Упс, не удалось обработать вашу фотографию!\n😟Вероятно, файл повреждён или его формат неправильный 🛠️.\nПопробуйте отправить другой файл!📸"
+
+					// Отправляем новое сообщение с гифом
+					if _, err := bot.Send(photoMsg); err != nil {
+						log.Println("Ошибка при отправке анимации:", err)
+					}
+				}()
 				return
 			}
+
 			del_res := os.Remove(filepath)
 			if del_res != nil {
 				fmt.Println("Error deleting file 101!!:", err)
 			}
-			res, err := post_file.DownloadFile(result, fileID, FileName)
-			if err != nil {
-				log.Println("Ошибка при загрузке файла:", err)
-				return
-			}
 
-			if res == "" {
-				log.Println("Ошибка загрузки файла:", err)
-				return
-			}
-			document := tgbotapi.NewDocumentUpload(chatID, res)
-			document.Caption = fmt.Sprintf("🎯 *Готово!* 🎯\n\n" +
+			document := tgbotapi.NewDocument(chatID, tgbotapi.FileURL(result))
+			document.Caption = "🎯 *Готово!* 🎯\n\n" +
 				"🎉 Ваше изображение теперь выглядит лучше! 📸🌈\n\n" +
-				"🔍 _Посмотрите внимательно и наслаждайтесь результатом!_ 😊")
+				"🔍 Посмотрите внимательно и наслаждайтесь результатом! 😊"
+			log.Println(result)
+			// Отправляем сообщение
 			_, err = bot.Send(document)
 			if err != nil {
-				log.Println("Ошибка отправки документа:", err)
+
+				log.Println("Ошибка отправки документа121:", err)
 			}
+
 			go func() {
 				deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
-				if _, err := bot.DeleteMessage(deleteMsg); err != nil {
+				if _, err := bot.Request(deleteMsg); err != nil {
 					log.Println("Ошибка при удалении сообщения:", err)
 				}
 			}()
-			err = os.Remove(filepath[:strings.Index(filepath, ".")+1] + "jpeg")
-			if err != nil {
-				fmt.Println("Error deleting file: 134!!", err)
-			}
+
 			mu.Lock()
 			(*us_state)[chatID] = IdleState
 			mu.Unlock()
@@ -139,39 +141,46 @@ func Upscale_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, us_state *map[i
 			mu.Lock()
 			userStates[chatID] = WaitingForImageState
 			mu.Unlock()
-			photoMsg := tgbotapi.NewAnimationShare(chatID, "https://i.gifer.com/origin/38/3823ad20629c89b3dd4821b80eee79eb_w200.gif")
-			photoMsg.ReplyToMessageID = messageID
-			photoMsg.Caption = fmt.Sprintf("📸 Ваше фото в обработке! 🚀\n" +
-				"Я занимаюсь улучшением и увеличением вашего изображения. Это займет примерно 10 секунд. ⏳✨\n\n" +
-				"Пожалуйста, подождите немного, и ваше фото будет готово к просмотру. Спасибо за терпение! 😊")
-			bot.Send(photoMsg)
+			informationMessage(bot, chatID, messageID)
+
 			api_key, err := rand_key.GetRandomAPIKey("NewApiKey.txt")
 			if err != nil {
 				log.Println("Ошибка при получении API-ключа:", err)
 				return
 			}
+
 			upscale_factor := (*us_active_commang)[chatID][len((*us_active_commang)[chatID])-2:]
 			url := update.Message.Text
+
 			go func() {
+
+				// Загрузка файла
 				res, err := post_file.DownloadFileUrl(url, "URl_Image", strconv.Itoa(int(chatID)))
 				if err != nil {
 					log.Println("Ошибка при загрузке файла:", err)
 				}
 				log.Println(upscale_factor)
+
+				// Отправка на обработку
 				res_post, err := post_file.PostImage(api_key, res, upscale_factor)
 				if err != nil {
 					log.Println("Ошибка при отправке пост Запроса 2")
 				}
+
+				// Удаление не обработанной фотографии
 				del_res := os.Remove(res)
 				if del_res != nil {
 					fmt.Println("Error deleting file:", err)
 				}
 
+				// Загрузка файла
 				end_download, err := post_file.DownloadFileUrl(res_post, "URl_Image", strconv.Itoa(int(chatID)))
 				if err != nil {
 					log.Println("Ошибка при загрузке файла:", err)
 				}
-				document := tgbotapi.NewDocumentUpload(chatID, res)
+
+				// Отправление документа
+				document := tgbotapi.NewDocument(chatID, tgbotapi.FileID(res))
 				document.Caption = fmt.Sprintf("🎯 *Готово!* 🎯\n\n" +
 					"🎉 Ваше изображение теперь выглядит лучше! 📸🌈\n\n" +
 					"🔍 _Посмотрите внимательно и наслаждайтесь результатом!_ 😊")
@@ -179,20 +188,21 @@ func Upscale_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, us_state *map[i
 				if err != nil {
 					log.Println("Ошибка отправки документа:", err)
 				}
+
+				// Удаление сообщения последнего сообщения
 				go func() {
 					deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
-					if _, err := bot.DeleteMessage(deleteMsg); err != nil {
+					if _, err := bot.Request(deleteMsg); err != nil {
 						log.Println("Ошибка при удалении сообщения:", err)
 					}
 				}()
+
+				// Удаление обработанной фотографии
 				err = os.Remove(end_download)
 				if err != nil {
 					fmt.Println("Error deleting file:", err)
 				}
-				mu.Lock()
-				(*us_state)[chatID] = IdleState
-				mu.Unlock()
-
+				setUserState(chatID, us_state)
 			}()
 			return
 		} else {
@@ -201,21 +211,42 @@ func Upscale_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, us_state *map[i
 				bot.Send(msg)
 				return
 			} else {
-				errorMessage_url := tgbotapi.NewAnimationShare(chatID, "https://gifs.obs.ru-moscow-1.hc.sbercloud.ru/1d06b49de1ac9de5cbc468d1d449d74658d39b7471c689cf5ec7570106908a9e.gif")
-				errorMessage_url.Caption = fmt.Sprintf("🚫 <i><strong>Ошибка! Неверный формат запроса.</strong></i> Пожалуйста, отправьте правильный URL-адрес. 🌐\n\n"+
-					"Чтобы продолжить, повторите команду /%s с <strong>корректным URL.</strong>⚠️", (*us_active_commang)[chatID])
-				errorMessage_url.ParseMode = "HTML"
-				errorMessage_url.ReplyToMessageID = messageID // Указываем ID сообщения для ответа
-				_, err := bot.Send(errorMessage_url)
-				if err != nil {
-					log.Println("Ошибка отправки GIF:", err)
-				}
-				mu.Lock()
-				(*us_state)[chatID] = IdleState
-				mu.Unlock()
+				errorMessage(bot, chatID, messageID, us_active_commang)
+				setUserState(chatID, us_state)
 				return
 			}
 		}
+	}
+}
+
+func errorMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int, us_active_commang *map[int64]string) {
+	errorMessage_url := tgbotapi.NewAnimation(chatID, tgbotapi.FileURL("https://gifs.obs.ru-moscow-1.hc.sbercloud.ru/1d06b49de1ac9de5cbc468d1d449d74658d39b7471c689cf5ec7570106908a9e.gif"))
+	errorMessage_url.Caption = fmt.Sprintf("🚫 <i><strong>Ошибка! Неверный формат запроса.</strong></i> Пожалуйста, отправьте правильный URL-адрес. 🌐\n\n"+
+		"Чтобы продолжить, повторите команду /%s с <strong>корректным URL.</strong>⚠️", (*us_active_commang)[chatID])
+	errorMessage_url.ParseMode = "HTML"
+	errorMessage_url.ReplyToMessageID = messageID // Указываем ID сообщения для ответа
+	bot.Send(errorMessage_url)
+}
+
+func informationMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int) {
+	// Формируем сообщение для отправки
+	photoMsg := tgbotapi.NewAnimation(chatID, tgbotapi.FileURL("https://i.gifer.com/origin/38/3823ad20629c89b3dd4821b80eee79eb_w200.gif"))
+	photoMsg.ReplyToMessageID = messageID
+	photoMsg.Caption = "📸 Ваше фото в обработке! 🚀\n" +
+		"Я занимаюсь улучшением и увеличением вашего изображения. Это займет примерно 10 секунд. ⏳✨\n\n" +
+		"Пожалуйста, подождите немного, и ваше фото будет готово к просмотру. Спасибо за терпение! 😊"
+	bot.Send(photoMsg)
+}
+
+func invalidFormatMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int, us_active_commang *map[int64]string) {
+	error_photo := tgbotapi.NewAnimation(chatID, tgbotapi.FileURL("https://gifs.obs.ru-moscow-1.hc.sbercloud.ru/6e330e6add14701f3a495e17e01e17cccb377fba621adb0f6aeec8430cfc5153.gif"))
+	error_photo.Caption = fmt.Sprintf("🚫 <i><strong>Неверный формат запроса!</strong></i> Вы отправили неправильный тип данных. Пожалуйста, загрузите фотографию как файл (например, JPEG или PNG), а не сжатое изображение. 📁\n\n"+
+		"Чтобы продолжить, повторите команду /%s и отправьте фотографию в виде файла. ⚠️", (*us_active_commang)[chatID])
+	error_photo.ParseMode = "HTML"
+	error_photo.ReplyToMessageID = messageID // Указываем ID сообщения для ответа
+	_, err := bot.Send(error_photo)
+	if err != nil {
+		log.Println("Ошибка отправки GIF:", err)
 	}
 }
 
@@ -227,4 +258,10 @@ func isImageFile(doc *tgbotapi.Document) bool {
 		}
 	}
 	return false
+}
+
+func setUserState(chatID int64, us_state *map[int64]int) {
+	mu.Lock()
+	defer mu.Unlock()
+	(*us_state)[chatID] = IdleState
 }
