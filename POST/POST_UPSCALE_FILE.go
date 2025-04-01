@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strings"
 )
 
 type Post_file struct {
@@ -19,41 +20,50 @@ type Post_file struct {
 	} `json:"data"`
 }
 
+const (
+	url = "https://api.picsart.io/tools/1.0/upscale"
+)
+
 func PostImage(apiKey string, filePath string, upscale_factor string) (string, error) {
-	url := "https://api.picsart.io/tools/1.0/upscale"
+
 	// Создание буфера для данных запроса
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("Ошибка при открытии файла", err)
-		return "", err
+		return "", fmt.Errorf("ошибка при открытии файла: %w", err)
 	}
 	defer file.Close()
-	log.Println(filePath)
+
 	// Создаем буфер и многокомпонентный писатель
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
 
 	// Добавляем параметр upscale_factor
-	writer.WriteField("upscale_factor", upscale_factor)
+	if err := writer.WriteField("upscale_factor", upscale_factor); err != nil {
+		log.Printf("Ошибка при открытии файла: %v", err)
+		return "", fmt.Errorf("ошибка при открытии файла: %w", err)
+	}
 
 	// Добавляем файл к части image
 	part, err := writer.CreateFormFile("image", filePath)
 	if err != nil {
-		fmt.Println(err)
-		return "", err
+		log.Printf("Ошибка при создании формы для файла: %v", err)
+		return "", fmt.Errorf("ошибка при создании формы для файла: %w", err)
 	}
-	_, err = io.Copy(part, file)
-	if err != nil {
-		fmt.Println(err)
-		return "", err
+	if _, err = io.Copy(part, file); err != nil {
+		log.Printf("Ошибка при копировании файла: %v", err)
+		return "", fmt.Errorf("ошибка при копировании файла: %w", err)
 	}
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		log.Printf("Ошибка при закрытии writer: %v", err)
+		return "", fmt.Errorf("ошибка при закрытии writer: %w", err)
+	}
 
 	// Создаем новый запрос
 	req, err := http.NewRequest("POST", url, &requestBody)
 	if err != nil {
-		fmt.Println(err)
-		return "", err
+		log.Printf("Ошибка при создании запроса: %v", err)
+		return "", fmt.Errorf("ошибка при создании запроса: %w", err)
 	}
 
 	// Добавляем заголовки
@@ -65,24 +75,27 @@ func PostImage(apiKey string, filePath string, upscale_factor string) (string, e
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
-		return "", err
+		log.Printf("Ошибка при выполнении запроса: %v", err)
+		return "", fmt.Errorf("ошибка при выполнении запроса: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		switch resp.StatusCode {
 		case http.StatusBadRequest:
-			log.Println("Ошибка запроса --- Номер ошибки : 400")
+			log.Println("[-] request failed -- Error number: 400")
+			return "", fmt.Errorf("Request failed with status %d", http.StatusBadRequest)
 		}
-		return "", nil
 	}
 
 	// Читаем ответ
 	var postFile Post_file
 	if err := json.NewDecoder(resp.Body).Decode(&postFile); err != nil {
-		fmt.Println(err)
-		return "", err
+		log.Printf("Ошибка при декодировании ответа: %v", err)
+		return "", fmt.Errorf("ошибка при декодировании ответа: %w", err)
 	}
-	return postFile.Data.Url, nil
+
+	result := strings.Replace(postFile.Data.Url, "?type=jpg&to=max&r=0", "", 1)
+
+	return result, nil
 }
