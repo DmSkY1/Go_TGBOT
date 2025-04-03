@@ -36,7 +36,7 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 		fileURL := file.Link(bot.Token)
 		installPhoto.InstallPhoto(fmt.Sprintf("picture/%s.jpeg", fileID), fileURL) // устанавливаем фотографию в папку picture
 
-		api_key, err := rand_key.GetRandomAPIKey("NewApiKey.txt")
+		api_key, err := rand_key.GetRandomAPIKey()
 		if err != nil {
 			log.Println("Ошибка при получении API-ключа:", err)
 			return
@@ -100,7 +100,7 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 			log.Printf("Файл успешно скачан с именем: %s", filepath)
 		}
 
-		api_key, err := rand_key.GetRandomAPIKey("NewApiKey.txt")
+		api_key, err := rand_key.GetRandomAPIKey()
 		if err != nil {
 			log.Println("Ошибка при получении API-ключа:", err)
 			return

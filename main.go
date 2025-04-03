@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/joho/godotenv"
 	cmd "main.go/Commands"
 )
 
@@ -34,8 +36,16 @@ const (
 	ChangeBackground        = "change_background"
 )
 
+func init() {
+	// loads values from .env into the system
+	if err := godotenv.Load(); err != nil {
+		log.Print("No .env file found")
+	}
+}
+
 func main() {
-	bot, err := tgbotapi.NewBotAPI("")
+	TOKEN, _ := os.LookupEnv("TOKEN")
+	bot, err := tgbotapi.NewBotAPI(TOKEN)
 	if err != nil {
 		log.Fatal(err)
 	}

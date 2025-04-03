@@ -18,10 +18,11 @@ type ApiKeys struct {
 	Keys map[string]ApiKey `json:"api_keys"`
 }
 
-func GetRandomAPIKey(filename string) (string, error) {
-	// open the file
+func GetRandomAPIKey() (string, error) {
+	filename := "ApiKey.txt"
 	file, err := os.Open(filename)
 	if err != nil {
+		log.Println(err)
 		return "", err
 	}
 	defer file.Close()
