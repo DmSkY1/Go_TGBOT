@@ -15,8 +15,10 @@ import (
 const (
 	IdleState = iota
 	WaitingForImageState
+	WaitingForProcessing
 	WaitingForImageToRemoveBackground
-	WaitingForChangeBackground
+	WaitingForProcessingRemoveBg
+	WaitingForVectorizingPicture
 )
 
 var (
@@ -33,13 +35,12 @@ const (
 	CommandUpscaleImageX8   = "upscale_image_x8"
 	CommandRemoveBackground = "remove_background"
 	CommandHelp             = "help"
-	ChangeBackground        = "change_background"
 )
 
 func init() {
 	// loads values from .env into the system
 	if err := godotenv.Load(); err != nil {
-		log.Print("No .env file found")
+		log.Println("\033[31m[Error]\033[0m Файл .env не найден.")
 	}
 }
 
@@ -50,11 +51,13 @@ func main() {
 		log.Fatal(err)
 	}
 
+	//fmt.Println("\033[31mКрасный текст\033[0m")
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 20
 
 	updatesChan := bot.GetUpdatesChan(u)
-	log.Println("Бот запущен")
+	log.Println("\033[32m[INFO]\033[0m Бот запущен")
 
 	// Обработка всех новых сообщений в отдельном горутине, чтобы не заблокировать основной поток обработки сообщений
 	var wg sync.WaitGroup
@@ -87,8 +90,6 @@ func processUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 			handleWaitingForImageState(bot, update)
 		case WaitingForImageToRemoveBackground:
 			handleWaitingForImageToRemoveBackground(bot, update)
-		case WaitingForChangeBackground:
-			handleChangeBackround(bot, update)
 		}
 	}
 
@@ -102,22 +103,21 @@ func handleIdleState(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	case CommandStart:
 		sendStartMessage(bot, chatID)
 		setUserState(chatID, IdleState, CommandStart)
+		log.Printf("\033[32m[INFO]\033[0m Пользователь [%d] воспользовался командой [%s]", chatID, command)
 	case CommandUpscaleImageX2, CommandUpscaleImageX4, CommandUpscaleImageX6, CommandUpscaleImageX8:
 		bot.Send(messageForUserToUpscaleImage)
 		setUserState(chatID, WaitingForImageState, command)
+		log.Printf("\033[32m[INFO]\033[0m Пользователь [%d] воспользовался командой [%s]", chatID, command)
 	case CommandRemoveBackground:
 		bot.Send(messageForUserToUpscaleImage)
 		setUserState(chatID, WaitingForImageToRemoveBackground, command)
+		log.Printf("\033[32m[INFO]\033[0m Пользователь [%d] воспользовался командой [%s]", chatID, command)
 	case CommandHelp:
 		sendHelpMessage(bot, chatID)
-	case ChangeBackground:
-		setUserState(chatID, WaitingForChangeBackground, command)
+		log.Printf("\033[32m[INFO]\033[0m Пользователь [%d] воспользовался командой [%s]", chatID, command)
 	}
 }
 
-func handleChangeBackround(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
-	go cmd.Change_background(bot, update)
-}
 func handleWaitingForImageState(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	go cmd.Upscale_image(bot, update, &userStates, &userActiveCommand)
 }
@@ -141,7 +141,7 @@ func sendHelpMessage(bot *tgbotapi.BotAPI, chatID int64) {
 	startMessage.ParseMode = "HTML"
 	_, err := bot.Send(startMessage)
 	if err != nil {
-		log.Println("Ошибка отправки GIF:", err)
+		log.Println("\033[31m[Error]\033[0m Ошибка отправки GIF:", err)
 	}
 }
 
@@ -158,7 +158,7 @@ func sendStartMessage(bot *tgbotapi.BotAPI, chatID int64) {
 	startMessage.ParseMode = "HTML"
 	_, err := bot.Send(startMessage)
 	if err != nil {
-		log.Println("Ошибка отправки GIF:", err)
+		log.Println("\033[31m[Error]\033[0m Ошибка отправки GIF:", err)
 	}
 }
 

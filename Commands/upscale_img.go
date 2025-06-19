@@ -17,16 +17,15 @@ import (
 
 // Константы состоянийы
 const (
-	pass = iota
+	_ = iota
 	WaitingForImageState
-	RemoveLastImage
+	WaitingForProcessing
 )
 
 // Состоние пользователей
 var (
-	userStates = make(map[int64]int64)
-	mu         sync.RWMutex
-	wg         sync.WaitGroup
+	mu sync.RWMutex
+	wg sync.WaitGroup
 )
 
 // Функция для обработки событий upscale_image
@@ -35,183 +34,171 @@ func Upscale_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, us_state *map[i
 	// Определение нужных переменных
 	chatID := update.Message.Chat.ID
 	messageID := update.Message.MessageID
-	mu.RLock()
-	state := userStates[chatID]
-	mu.RUnlock()
-
 	// Проверка, является ли сообщение сжатой фотографией
 	if update.Message.Photo != nil {
 		invalidFormatMessage(bot, chatID, messageID, us_active_commang)
-		setUserState(chatID, us_state)
 		return
 
-	} else if update.Message.Document != nil && isImageFile(update.Message.Document) { // Провверка, является ли сообщение документом
-		mu.RLock()
-		userStates[chatID] = WaitingForImageState
-		mu.RUnlock()
-		informationMessage(bot, chatID, messageID)
+	} else if update.Message.Document != nil && isImageFile(update.Message.Document) {
+		if getUserState(chatID, us_state) == WaitingForImageState {
+			setUserState(chatID, us_state, WaitingForProcessing)
+			informationMessage(bot, chatID, messageID)
+			log.Printf("\033[32m[INFO]\033[0m Получена фотография от пользователя. ChatID [%d]", chatID)
 
-		// Получаем API-ключ из файла
-		api_key, err := rand_key.GetRandomAPIKey()
-		if err != nil {
-			log.Println("Ошибка при получении API-ключа:", err)
-			return
-		}
-
-		// Получение id документа
-		fileID := update.Message.Document.FileID
-		file, err := bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
-		if err != nil {
-			log.Println("Ошибка при получении файла:", err)
-			return
-		}
-
-		// Установка и отправка на обработку сообщения
-		downloadURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", bot.Token, file.FilePath)
-		filepath := filepath.Join("picture", fmt.Sprintf("%s_%s", fileID, update.Message.Document.FileName))
-
-		// Скачиваем файл из Telegram API
-		err = installPhoto.InstallPhoto(filepath, downloadURL)
-		if err != nil {
-			log.Println("Ошибка при скачивании файла:", err)
-		}
-
-		// Получение занчения по улучшению качества
-		upscale_factor := (*us_active_commang)[chatID][len((*us_active_commang)[chatID])-2:]
-		// log.Println(upscale_factor)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// Отправка запроса на обработку фотографии
-			result, err := post_file.PostImage(api_key, filepath, upscale_factor)
+			// Получаем API-ключ из файла
+			api_key, err := rand_key.GetRandomAPIKey()
 			if err != nil {
-				setUserState(chatID, us_state)
+				log.Println("\033[31m[Error]\033[0m Ошибка при получении API-ключа:", err)
+				return
+			}
+			log.Printf("\033[32m[INFO]\033[0m API ключ сгенерирован. ChatID [%d]", chatID)
 
-				//Удаление последнего сообщения
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+			// Получение id документа
+			fileID := update.Message.Document.FileID
+			file, err := bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
+			if err != nil {
+				log.Println("\033[31m[Error]\033[0m Ошибка при получении файла:", err)
+				return
+			}
+			log.Printf("\033[32m[INFO]\033[0m ID фотографии получено. ChatID [%d]", chatID)
+
+			// Установка и отправка на обработку сообщения
+			downloadURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", bot.Token, file.FilePath)
+			filepath := filepath.Join("picture", fmt.Sprintf("%s_%s", fileID, update.Message.Document.FileName))
+
+			// Скачиваем файл из Telegram API
+			err = installPhoto.InstallPhoto(filepath, downloadURL)
+			if err != nil {
+				log.Println(err)
+			}
+			log.Printf("\033[32m[INFO]\033[0m Фотография успешно скачена. ChatID [%d]", chatID)
+
+			upscale_factor := "4"
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				// Отправка запроса на обработку фотографии
+				result, err := post_file.PostImage(api_key, filepath, upscale_factor)
+
+				log.Printf("\033[32m[INFO]\033[0m Фотография от пользователя [%d] отправлена в обработку", chatID)
+
+				if err != nil {
+					log.Println(err)
 					deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
 					if _, err := bot.Request(deleteMsg); err != nil {
-						log.Println("Ошибка при удалении сообщения:", err)
+						log.Println("\033[31m[Error]\033[0m Ошибка при удалении сообщения:", err)
 					}
-					// https://s7.gifyu.com/images/SGWok.gif митсури
-					// Отправляем новое сообщение с гифом и обновленной подписью
-					photoMsg := tgbotapi.NewAnimation(chatID, tgbotapi.FileURL("https://media1.tenor.com/m/SkLMJf60EyQAAAAd/%D0%B0%D0%BD%D0%B8%D0%BC%D0%B5.gif"))
+					photoMsg := tgbotapi.NewAnimation(chatID, tgbotapi.FileURL("https://c.tenor.com/ErB2RhcIXpwAAAAd/tenor.gif"))
 					photoMsg.ReplyToMessageID = update.Message.MessageID
 					photoMsg.Caption = "🚫 Упс, не удалось обработать вашу фотографию!\n😟Вероятно, файл повреждён или его формат неправильный 🛠️.\nПопробуйте отправить другой файл!📸"
 
 					// Отправляем новое сообщение с гифом
 					if _, err := bot.Send(photoMsg); err != nil {
-						log.Println("Ошибка при отправке анимации:", err)
+						log.Println("\033[31m[Error]\033[0m Ошибка при отправке анимации:", err)
 					}
-				}()
-				return
-			}
-
-			defer os.Remove(filepath) // Удаление фотографии
-
-			document := tgbotapi.NewDocument(chatID, tgbotapi.FileURL(result)) // Отправка готового результата
-			document.Caption = "🎯 *Готово!* 🎯\n\n" +
-				"🎉 Ваше изображение теперь выглядит лучше! 📸🌈\n\n" +
-				"🔍 Посмотрите внимательно и наслаждайтесь результатом! 😊"
-			log.Println(result)
-			// Отправляем сообщение
-			_, err = bot.Send(document)
-			if err != nil {
-
-				log.Println("Ошибка отправки документа121:", err)
-			}
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+					defer os.Remove(filepath)
+					return
+				}
+				defer os.Remove(filepath)
 				deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
 				if _, err := bot.Request(deleteMsg); err != nil {
-					log.Println("Ошибка при удалении сообщения:", err)
+					log.Println("\033[31m[Error]\033[0m Ошибка при удалении сообщения:", err)
 				}
+				log.Printf("\033[32m[INFO]\033[0m Информационное сообщение удалено успешно. ChatID [%d]", chatID)
+				// https://s7.gifyu.com/images/SGWok.gif митсури
+				// Отправляем новое сообщение с гифом и обновленной подписью
+
+				document := tgbotapi.NewDocument(chatID, tgbotapi.FileURL(result)) // Отправка готового результата
+				document.Caption = "🎯 *Готово!* 🎯\n\n" +
+					"🎉 Ваше изображение теперь выглядит лучше! 📸🌈\n\n" +
+					"🔍 Посмотрите внимательно и наслаждайтесь результатом! 😊"
+				// Отправляем сообщение
+				_, err = bot.Send(document)
+				if err != nil {
+
+					log.Println("\033[31m[Error]\033[0m Ошибка отправки документа121:", err)
+				}
+				log.Printf("\033[32m[INFO]\033[0m Документ успешно отправлен. ChatID [%d]", chatID)
 			}()
-		}()
-		wg.Wait()
-		return
+			wg.Wait()
+			setUserState(chatID, us_state, IdleState)
+			return
+		}
 
 	} else if update.Message != nil && update.Message.Text != "" {
 		if strings.HasPrefix(update.Message.Text, "https://") || strings.HasPrefix(update.Message.Text, "http://") {
-			mu.Lock()
-			userStates[chatID] = WaitingForImageState
-			mu.Unlock()
-			informationMessage(bot, chatID, messageID)
+			if getUserState(chatID, us_state) == WaitingForImageState {
+				setUserState(chatID, us_state, WaitingForProcessing)
+				informationMessage(bot, chatID, messageID)
 
-			api_key, err := rand_key.GetRandomAPIKey()
-			if err != nil {
-				log.Println("Ошибка при получении API-ключа:", err)
-				return
-			}
-
-			upscale_factor := (*us_active_commang)[chatID][len((*us_active_commang)[chatID])-2:]
-			url := update.Message.Text
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				// Загрузка файла
-				res, err := post_file.DownloadFileUrl(url, "URl_Image", strconv.Itoa(int(chatID)))
+				api_key, err := rand_key.GetRandomAPIKey()
 				if err != nil {
-					log.Println("Ошибка при загрузке файла:", err)
+					log.Println("\033[31m[Error]\033[0m Ошибка при получении API-ключа:", err)
 					return
 				}
+				log.Printf("\033[32m[INFO]\033[0m API ключ сгенерирован. ChatID [%d]", chatID)
 
-				// Отправка на обработку
-				res_post, err := post_file.PostImage(api_key, res, upscale_factor)
-				if err != nil {
-					log.Println("Ошибка при отправке пост Запроса 2")
-					return
-				}
+				upscale_factor := "4"
+				url := update.Message.Text
 
-				// Удаление не обработанной фотографии
-				defer os.Remove(res)
-
-				// Загрузка файла
-				end_download, err := post_file.DownloadFileUrl(res_post, "URl_Image", strconv.Itoa(int(chatID)))
-				if err != nil {
-					log.Println("Ошибка при загрузке файла:", err)
-					return
-				}
-
-				// Отправление документа
-				document := tgbotapi.NewDocument(chatID, tgbotapi.FileID(res))
-				document.Caption = fmt.Sprintf("🎯 *Готово!* 🎯\n\n" +
-					"🎉 Ваше изображение теперь выглядит лучше! 📸🌈\n\n" +
-					"🔍 _Посмотрите внимательно и наслаждайтесь результатом!_ 😊")
-				_, err = bot.Send(document)
-				if err != nil {
-					log.Println("Ошибка отправки документа:", err)
-					return
-				}
-
-				// Удаление сообщения последнего сообщения
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
-					if _, err := bot.Request(deleteMsg); err != nil {
-						log.Println("Ошибка при удалении сообщения:", err)
+					// Загрузка файла
+					res, err := post_file.DownloadFileUrl(url, "URl_Image", strconv.Itoa(int(chatID)))
+					if err != nil {
+						log.Println("\033[31m[Error]\033[0m Ошибка при загрузке файла:", err)
 						return
 					}
-				}()
+					log.Printf("\033[32m[INFO]\033[0m Фотография успешно скачена. ChatID [%d]", chatID)
 
-				// Удаление обработанной фотографии
-				defer os.Remove(end_download)
-				setUserState(chatID, us_state)
-			}()
-			wg.Wait()
-			return
+					// Отправка на обработку
+					res_post, err := post_file.PostImage(api_key, res, upscale_factor)
+					if err != nil {
+						log.Println(err)
+						setUserState(chatID, us_state, IdleState)
+						return
+					}
+					log.Printf("\033[32m[INFO]\033[0m Документ успешно обработан. ChatID [%d]", chatID)
+
+					// Удаление не обработанной фотографии
+					defer os.Remove(res)
+
+					// Отправление документа
+					document := tgbotapi.NewDocument(chatID, tgbotapi.FileID(res_post))
+					document.Caption = fmt.Sprintf("🎯 *Готово!* 🎯\n\n" +
+						"🎉 Ваше изображение теперь выглядит лучше! 📸🌈\n\n" +
+						"🔍 _Посмотрите внимательно и наслаждайтесь результатом!_ 😊")
+					_, err = bot.Send(document)
+					if err != nil {
+						log.Println("\033[31m[Error]\033[0m Ошибка отправки документа:", err)
+						return
+					}
+					log.Printf("\033[32m[INFO]\033[0m Документ успешно отправлен. ChatID [%d]", chatID)
+
+					// Удаление сообщения последнего сообщения
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
+						if _, err := bot.Request(deleteMsg); err != nil {
+							log.Println("\033[31m[Error]\033[0m Ошибка при удалении сообщения:", err)
+							return
+						}
+						log.Printf("\033[32m[INFO]\033[0m Информационное сообщение удалено успешно. ChatID [%d]", chatID)
+					}()
+					setUserState(chatID, us_state, IdleState)
+				}()
+				wg.Wait()
+				return
+			}
 		} else {
-			if state == WaitingForImageState {
-				bot.Send(tgbotapi.NewMessage(chatID, "Пожалуйста, подождите немного, и ваше фото будет готово к просмотру. Спасибо за терпение!"))
+			if (*us_state)[chatID] == WaitingForImageState {
+				bot.Send(tgbotapi.NewMessage(chatID, "Пожалуйста, отправьте фотографию. Бот не воспринимает ваш текст. Я буду ждать ващей фотографии ))"))
 				return
 			} else {
 				errorMessage(bot, chatID, messageID, us_active_commang)
-				setUserState(chatID, us_state)
+				setUserState(chatID, us_state, IdleState)
 				return
 			}
 		}
@@ -245,7 +232,7 @@ func invalidFormatMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int, us_
 	error_photo.ReplyToMessageID = messageID // Указываем ID сообщения для ответа
 	_, err := bot.Send(error_photo)
 	if err != nil {
-		log.Println("Ошибка отправки GIF:", err)
+		log.Println("\033[31m[Error]\033[0m Ошибка отправки GIF:", err)
 	}
 }
 
@@ -260,8 +247,14 @@ func isImageFile(doc *tgbotapi.Document) bool {
 	return false
 }
 
-func setUserState(chatID int64, us_state *map[int64]int) {
+func getUserState(chatID int64, us_state *map[int64]int) int {
+	mu.RLock()
+	defer mu.RUnlock()
+	return (*us_state)[chatID]
+}
+
+func setUserState(chatID int64, us_state *map[int64]int, state_now int) {
 	mu.Lock()
-	(*us_state)[chatID] = IdleState
 	defer mu.Unlock()
+	(*us_state)[chatID] = state_now
 }

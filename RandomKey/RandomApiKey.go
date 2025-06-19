@@ -3,6 +3,7 @@ package RandomKey
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -22,63 +23,55 @@ func GetRandomAPIKey() (string, error) {
 	filename := "ApiKey.txt"
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Println(err)
-		return "", err
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка при открытии файла %v", err)
 	}
 	defer file.Close()
 
-	// Read all lines into a slice
 	var keys []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		keys = append(keys, scanner.Text())
 	}
 
-	// Check for errors during the file read
 	if err := scanner.Err(); err != nil {
-		return "", err
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка сканера %v", err)
 	}
-	// read json file
-	data, err := os.ReadFile("C:/Users/DmSkY/Desktop/Go_Bot/using_API_keys.json")
+	data, err := os.ReadFile("using_API_keys.json")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка чтения JSON файла %v", err)
 	}
 
-	//create instance
 	var api_keys ApiKeys
 
-	//unmarshal json data to the struct
 	err = json.Unmarshal(data, &api_keys)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка преобразования JSON файла к структуре %v", err)
 	}
 
 	keyName := keys[Random_index(filename, keys)]
 	Key := api_keys.Keys[keyName]
+	for {
+		if Key.Using < 25 {
+			Key.Using++
+			Key.LeftToUse--
 
-	if Key.Using < 25 {
-		Key.Using++
-		Key.LeftToUse--
+			api_keys.Keys[keyName] = Key
 
-		api_keys.Keys[keyName] = Key
+			updateData, err := json.MarshalIndent(api_keys, "", " ")
+			if err != nil {
+				return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка обработки JSON %v", err)
+			}
+			err = os.WriteFile("using_API_keys.json", updateData, 0644)
+			if err != nil {
+				return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка чтения JSON %v", err)
+			}
 
-		updateData, err := json.MarshalIndent(api_keys, "", " ")
-		if err != nil {
-			log.Println("[-] Error marshaling json")
-			return "", err
+			log.Println("\033[32m[INFO]\033[0m Ключ успешно сгенерирован")
+			return keyName, nil
+		} else {
+			keyName = keys[Random_index(filename, keys)]
+			continue
 		}
-		err = os.WriteFile("C:/Users/DmSkY/Desktop/Go_Bot/using_API_keys.json", updateData, 0644)
-		if err != nil {
-			log.Println("[-] Error writing json:", err)
-			return "", err
-		}
-
-		log.Println("[+] Successful key verification")
-		return keyName, nil
-	} else if Key.Using >= 25 {
-		return "", nil
-	} else {
-		return "", nil
 	}
 
 }
