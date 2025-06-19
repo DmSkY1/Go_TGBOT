@@ -13,7 +13,10 @@
 ## 📸 Пример
 Пример удаления фона с изображения:
 
-![Пример](img/example.gif)
+<p align="center">
+  <img src="https://i.postimg.cc/90h1y6ss/example.gif" alt="Delta Bot" width="320"/>
+</p>
+
 
 ---
 
@@ -21,7 +24,7 @@
 Отсканируйте QR-код или нажмите кнопку ниже, чтобы начать использовать Delta Bot в Telegram!
 
 <p align="center">
-  <img src="img/qr.png" alt="QR-код" width="200"/>
+  <img src="https://i.postimg.cc/QxDn773V/qr.png" alt="QR-код" width="300"/>
 </p>
 
 <p align="center">
