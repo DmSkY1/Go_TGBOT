@@ -49,12 +49,12 @@
 3. **Установка зависимостей**:
    - Установите необходимые библиотеки Go:
      ```bash
-     go get github.com/go-telegram-bot-api/telegram-bot-api # 📦 Telegram API
-     go get github.com/andybalholm/brotli # 🗜️ Сжатие
-     go get github.com/joho/godotenv # 🌐 Переменные окружения
-     go get github.com/klauspost/compress # 🗜️ Сжатие
-     go get github.com/valyala/bytebufferpool # ⚡ Буфер
-     go get github.com/xlab/multipartstreamer # 📤 Потоковая передача
+     go get github.com/go-telegram-bot-api/telegram-bot-api
+     go get github.com/andybalholm/brotli 
+     go get github.com/joho/godotenv 
+     go get github.com/klauspost/compress 
+     go get github.com/valyala/bytebufferpool 
+     go get github.com/xlab/multipartstreamer 
      ```
 4. Настройка переменных окружения:
    - Создайте файл .env в корне проекта.
@@ -69,7 +69,7 @@
    - Перейдите в папку generate_json.
    - Запустите скрипт для создания JSON-файла:
    ```bash
-    go run script.go
+    go run json_generate_script.go
    ```
 7. Запуск бота:
    - Запустите бота командой:
@@ -77,7 +77,7 @@
     go run main.go
    ```
 
-🎉 Поздравляем! Ваш Delta Bot готов к работе!
+🎉 Ваш Delta Bot готов к работе!
 
 ---
 
