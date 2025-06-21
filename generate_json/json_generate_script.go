@@ -41,7 +41,7 @@ func main() {
 		if err != nil {
 			return
 		}
-		if err := os.WriteFile("using_API_keys.json", fileData, 0644); err != nil {
+		if err := os.WriteFile("using_api_keys.json", fileData, 0644); err != nil {
 			return
 		}
 	}

@@ -23,7 +23,7 @@ func GetRandomAPIKey() (string, error) {
 	filename := "ApiKey.txt"
 	file, err := os.Open(filename)
 	if err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка при открытии файла %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Error when opening a file %v.", err)
 	}
 	defer file.Close()
 
@@ -34,18 +34,18 @@ func GetRandomAPIKey() (string, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка сканера %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Scanner error %v.", err)
 	}
-	data, err := os.ReadFile("using_API_keys.json")
+	data, err := os.ReadFile("using_api_keys.json")
 	if err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка чтения JSON файла %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Error reading the JSON file %v.", err)
 	}
 
 	var api_keys ApiKeys
 
 	err = json.Unmarshal(data, &api_keys)
 	if err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка преобразования JSON файла к структуре %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Error converting a JSON file to a structure %v.", err)
 	}
 
 	keyName := keys[Random_index(filename, keys)]
@@ -59,14 +59,14 @@ func GetRandomAPIKey() (string, error) {
 
 			updateData, err := json.MarshalIndent(api_keys, "", " ")
 			if err != nil {
-				return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка обработки JSON %v", err)
+				return "", fmt.Errorf("\033[31m[Error]\033[0m JSON processing error. %v", err)
 			}
-			err = os.WriteFile("using_API_keys.json", updateData, 0644)
+			err = os.WriteFile("using_api_keys.json", updateData, 0644)
 			if err != nil {
-				return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка чтения JSON %v", err)
+				return "", fmt.Errorf("\033[31m[Error]\033[0m Error reading JSON. %v", err)
 			}
 
-			log.Println("\033[32m[INFO]\033[0m Ключ успешно сгенерирован")
+			log.Println("\033[32m[INFO]\033[0m The key has been successfully generated.")
 			return keyName, nil
 		} else {
 			keyName = keys[Random_index(filename, keys)]

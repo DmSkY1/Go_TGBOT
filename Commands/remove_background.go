@@ -22,16 +22,16 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 	messageID := update.Message.MessageID
 
 	if update.Message.Photo != nil {
-		log.Printf("\033[32m[INFO]\033[0m Получена фотография от пользователя. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m A photo was received from the user. ChatID [%d]", chatID)
 		setUserState(chatID, user_state, WaitingForProcessingRemoveBg)
 		photo := update.Message.Photo
 		fileID := photo[len(photo)-1].FileID
 		file, err := bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
 		if err != nil {
-			log.Println("\033[31m[Error]\033[0m Ошибка при получении id фотографии:", err)
+			log.Println("\033[31m[Error]\033[0m Error when receiving the photo id:", err)
 			return
 		}
-		log.Printf("\033[32m[INFO]\033[0m ID фотографии получено. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m Photo ID received. ChatID [%d]", chatID)
 
 		infoMessage(bot, chatID, messageID)
 
@@ -41,24 +41,24 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 			log.Println(err)
 			return
 		} // устанавливаем фотографию в папку picture
-		log.Printf("\033[32m[INFO]\033[0m Фотография успешно скачена. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m The photo was successfully downloaded. ChatID [%d]", chatID)
 
 		api_key, err := rand_key.GetRandomAPIKey()
 		if err != nil {
-			log.Println("\033[31m[Error]\033[0m Ошибка при получении API-ключа:", err)
+			log.Println("\033[31m[Error]\033[0m Error when receiving the API key:", err)
 			return
 		}
-		log.Printf("\033[32m[INFO]\033[0m API ключ сгенерирован. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m API key generated. ChatID [%d]", chatID)
 
 		result, err := post_file.RemoveBackground(api_key, fmt.Sprintf("picture/%s.jpeg", fileID))
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		log.Printf("\033[32m[INFO]\033[0m Документ успешно обработан. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m The document has been processed successfully. ChatID [%d]", chatID)
 
 		if err = os.Remove(fmt.Sprintf("picture/%s.jpeg", fileID)); err != nil {
-			log.Println("\033[31m[Error]\033[0m Ошибка при удалении фотографии:", err)
+			log.Println("\033[31m[Error]\033[0m Error when deleting a photo:", err)
 			return
 		}
 
@@ -68,33 +68,33 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 			"🔍 _Посмотрите внимательно и наслаждайтесь результатом!_ 😊")
 		_, err = bot.Send(document)
 		if err != nil {
-			log.Println("\033[31m[Error]\033[0m Ошибка отправки документа:", err)
+			log.Println("\033[31m[Error]\033[0m Error sending the document:", err)
 			return
 		}
-		log.Printf("\033[32m[INFO]\033[0m Документ успешно отправлен. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m The document has been sent successfully. ChatID [%d]", chatID)
 
 		go func() {
 			deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
 			if _, err := bot.Request(deleteMsg); err != nil {
-				log.Println("\033[31m[Error]\033[0m Ошибка при удалении сообщения:", err)
+				log.Println("\033[31m[Error]\033[0m Error deleting a message:", err)
 				return
 			}
-			log.Printf("\033[32m[INFO]\033[0m Информационное сообщение удалено успешно. ChatID [%d]", chatID)
+			log.Printf("\033[32m[INFO]\033[0m The information message was deleted successfully. ChatID [%d]", chatID)
 		}()
 		setUserState(chatID, user_state, IdleState)
 
 	} else if update.Message.Document != nil && isImageFile(update.Message.Document) {
-		log.Printf("\033[32m[INFO]\033[0m Получена фотография от пользователя. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m A photo was received from the user. ChatID [%d]", chatID)
 		setUserState(chatID, user_state, WaitingForProcessingRemoveBg)
 		infoMessage(bot, chatID, messageID)
 
 		fileID := update.Message.Document.FileID
 		file, err := bot.GetFile(tgbotapi.FileConfig{FileID: fileID})
 		if err != nil {
-			log.Println("\033[31m[Error]\033[0m Ошибка при получении id фотографии:", err)
+			log.Println("\033[31m[Error]\033[0m Error when receiving the photo id:", err)
 			return
 		}
-		log.Printf("\033[32m[INFO]\033[0m ID фотографии получено. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m Photo ID received. ChatID [%d]", chatID)
 
 		download_url := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", bot.Token, file.FilePath)
 		filepath := fmt.Sprintf("picture/%s_%s", fileID, update.Message.Document.FileName)
@@ -103,24 +103,24 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 			log.Println(err)
 			return
 		}
-		log.Printf("\033[32m[INFO]\033[0m Фотография успешно скачена. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m The photo was successfully downloaded. ChatID [%d]", chatID)
 
 		api_key, err := rand_key.GetRandomAPIKey()
 		if err != nil {
-			log.Println("\033[31m[Error]\033[0m Ошибка при получении API-ключа:", err)
+			log.Println("\033[31m[Error]\033[0m Error when receiving the API key:", err)
 			return
 		}
-		log.Printf("\033[32m[INFO]\033[0m API ключ сгенерирован. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m The API key has been generated. ChatID [%d]", chatID)
 
 		result, err := post_file.RemoveBackground(api_key, filepath)
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		log.Printf("\033[32m[INFO]\033[0m Документ успешно обработан. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m The document has been processed successfully. ChatID [%d]", chatID)
 
 		if err = os.Remove(filepath); err != nil {
-			log.Println("\033[31m[Error]\033[0m Ошибка при удалении фотографии:", err)
+			log.Println("\033[31m[Error]\033[0m Error when deleting a photo:", err)
 			return
 		}
 
@@ -130,18 +130,18 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 			"🔍 _Посмотрите внимательно и наслаждайтесь результатом!_ 😊")
 		_, err = bot.Send(document)
 		if err != nil {
-			log.Println("\033[31m[Error]\033[0m Ошибка отправки документа:", err)
+			log.Println("\033[31m[Error]\033[0m Error sending the document:", err)
 			return
 		}
-		log.Printf("\033[32m[INFO]\033[0m Документ успешно отправлен. ChatID [%d]", chatID)
+		log.Printf("\033[32m[INFO]\033[0m The document has been sent successfully. ChatID [%d]", chatID)
 		go func() {
 			deleteMsg := tgbotapi.NewDeleteMessage(chatID, update.Message.MessageID+1)
 			_, err := bot.Request(deleteMsg)
 			if err != nil {
-				log.Println("\033[31m[Error]\033[0m Ошибка при удалении сообщения:", err)
+				log.Println("\033[31m[Error]\033[0m Error deleting a message:", err)
 				return
 			}
-			log.Printf("\033[32m[INFO]\033[0m Информационное сообщение удалено успешно. ChatID [%d]", chatID)
+			log.Printf("\033[32m[INFO]\033[0m The information message was deleted successfully. ChatID [%d]", chatID)
 		}()
 		setUserState(chatID, user_state, IdleState)
 
@@ -157,7 +157,7 @@ func Remove_background_image(bot *tgbotapi.BotAPI, update tgbotapi.Update, user_
 		errorMessage_url.ReplyToMessageID = messageID // Указываем ID сообщения для ответа
 		_, err := bot.Send(errorMessage_url)
 		if err != nil {
-			log.Println("\033[31m[Error]\033[0m Ошибка отправки GIF:", err)
+			log.Println("\033[31m[Error]\033[0m GIF sending error:", err)
 			return
 		}
 		return
@@ -173,7 +173,7 @@ func infoMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int) {
 		"Пожалуйста, подождите немного, и ваше фото будет готово к просмотру. Спасибо за терпение! 😊")
 	_, err := bot.Send(photoMsg)
 	if err != nil {
-		log.Println("\033[31m[Error]\033[0m Ошибка при отправке сообщения", err)
+		log.Println("\033[31m[Error]\033[0m Error when sending a message.", err)
 		return
 	}
 }

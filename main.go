@@ -57,7 +57,7 @@ func main() {
 	u.Timeout = 20
 
 	updatesChan := bot.GetUpdatesChan(u)
-	log.Println("\033[32m[INFO]\033[0m Бот запущен")
+	log.Println("\033[32m[INFO]\033[0m The bot is running.")
 
 	// Обработка всех новых сообщений в отдельном горутине, чтобы не заблокировать основной поток обработки сообщений
 	var wg sync.WaitGroup
@@ -103,18 +103,18 @@ func handleIdleState(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	case CommandStart:
 		sendStartMessage(bot, chatID)
 		setUserState(chatID, IdleState, CommandStart)
-		log.Printf("\033[32m[INFO]\033[0m Пользователь [%d] воспользовался командой [%s]", chatID, command)
+		log.Printf("\033[32m[INFO]\033[0m User [%d] used the command [%s]", chatID, command)
 	case CommandUpscaleImageX2, CommandUpscaleImageX4, CommandUpscaleImageX6, CommandUpscaleImageX8:
 		bot.Send(messageForUserToUpscaleImage)
 		setUserState(chatID, WaitingForImageState, command)
-		log.Printf("\033[32m[INFO]\033[0m Пользователь [%d] воспользовался командой [%s]", chatID, command)
+		log.Printf("\033[32m[INFO]\033[0m User [%d] used the command [%s]", chatID, command)
 	case CommandRemoveBackground:
 		bot.Send(messageForUserToUpscaleImage)
 		setUserState(chatID, WaitingForImageToRemoveBackground, command)
-		log.Printf("\033[32m[INFO]\033[0m Пользователь [%d] воспользовался командой [%s]", chatID, command)
+		log.Printf("\033[32m[INFO]\033[0m User [%d] used the command [%s]", chatID, command)
 	case CommandHelp:
 		sendHelpMessage(bot, chatID)
-		log.Printf("\033[32m[INFO]\033[0m Пользователь [%d] воспользовался командой [%s]", chatID, command)
+		log.Printf("\033[32m[INFO]\033[0m User [%d] used the command [%s]", chatID, command)
 	}
 }
 
@@ -141,7 +141,7 @@ func sendHelpMessage(bot *tgbotapi.BotAPI, chatID int64) {
 	startMessage.ParseMode = "HTML"
 	_, err := bot.Send(startMessage)
 	if err != nil {
-		log.Println("\033[31m[Error]\033[0m Ошибка отправки GIF:", err)
+		log.Println("\033[31m[Error]\033[0m GIF sending error:", err)
 	}
 }
 
@@ -158,7 +158,7 @@ func sendStartMessage(bot *tgbotapi.BotAPI, chatID int64) {
 	startMessage.ParseMode = "HTML"
 	_, err := bot.Send(startMessage)
 	if err != nil {
-		log.Println("\033[31m[Error]\033[0m Ошибка отправки GIF:", err)
+		log.Println("\033[31m[Error]\033[0m GIF sending error:", err)
 	}
 }
 

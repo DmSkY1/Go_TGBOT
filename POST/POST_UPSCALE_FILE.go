@@ -25,12 +25,12 @@ const (
 )
 
 func PostImage(apiKey string, filePath string, upscale_factor string) (string, error) {
-	log.Print("\033[32m[INFO]\033[0m Подготовка запроса к отправке.")
+	log.Print("\033[32m[INFO]\033[0m Preparing the request for sending.")
 
 	// Создание буфера для данных запроса
 	file, err := os.Open(filePath)
 	if err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка при открытии файла %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Error when opening a file %v", err)
 	}
 	defer file.Close()
 
@@ -40,25 +40,25 @@ func PostImage(apiKey string, filePath string, upscale_factor string) (string, e
 
 	// Добавляем параметр upscale_factor
 	if err := writer.WriteField("upscale_factor", upscale_factor); err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка при создпнии поля в запросе: %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Error when creating a field in the request: %v", err)
 	}
 
 	// Добавляем файл к части image
 	part, err := writer.CreateFormFile("image", filePath)
 	if err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка при создании формы для файла: %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Error when creating a form for a file: %v", err)
 	}
 	if _, err = io.Copy(part, file); err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка при копировании файла: %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Error when copying a file: %v", err)
 	}
 	if err := writer.Close(); err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка при закрытии writer: %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Error closing writer: %v", err)
 	}
 
 	// Создаем новый запрос
 	req, err := http.NewRequest("POST", url, &requestBody)
 	if err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка при создании запроса: %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Error when creating the request: %v", err)
 	}
 
 	// Добавляем заголовки
@@ -70,25 +70,25 @@ func PostImage(apiKey string, filePath string, upscale_factor string) (string, e
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m  Ошибка выполнения завпроса %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m  Request execution error %v", err)
 	}
 	defer resp.Body.Close()
-	log.Print("\033[32m[INFO]\033[0m Запрос отправлен.")
+	log.Print("\033[32m[INFO]\033[0m The request has been sent.")
 
 	if resp.StatusCode != http.StatusOK {
 		switch resp.StatusCode {
 		case http.StatusBadRequest:
-			return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка запроса: 400")
+			return "", fmt.Errorf("\033[31m[Error]\033[0m Request error: 400")
 		}
 	}
 
 	// Читаем ответ
 	var postFile Post_file
 	if err := json.NewDecoder(resp.Body).Decode(&postFile); err != nil {
-		return "", fmt.Errorf("\033[31m[Error]\033[0m Ошибка при декодировании ответа: %v", err)
+		return "", fmt.Errorf("\033[31m[Error]\033[0m Error decoding the response: %v", err)
 	}
 	result := strings.Replace(postFile.Data.Url, "?type=jpg&to=max&r=0", "", 1)
 
-	log.Print("\033[32m[INFO]\033[0m Данные запроса успешно обратоны.")
+	log.Print("\033[32m[INFO]\033[0m The request data has been successfully processed.")
 	return result, nil
 }
